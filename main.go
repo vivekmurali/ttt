@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
@@ -12,13 +15,40 @@ import (
 type Game struct {
 	board [3][3]int
 	turn  int
+	// 0 - menu
+	// 1 - playing
+	// 2 - game over
+	state  int
+	winner int
 }
 
 func (g *Game) Update() error {
+	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
+		x, y := ebiten.CursorPosition()
+
+		if g.state == 1 {
+
+			i, j := getSquare(x, y)
+
+			if g.board[i][j] < 1 {
+
+				g.board[i][j] = g.turn
+
+				if g.turn == 1 {
+					g.turn = 2
+				} else {
+					g.turn = 1
+				}
+
+				g.checkWinCondition()
+			}
+		}
+	}
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("Game state is: %d", g.state))
 	drawBoard(screen)
 	g.drawGame(screen)
 }
@@ -30,7 +60,8 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 func main() {
 
 	g := &Game{
-		turn: 1,
+		turn:  1,
+		state: 1,
 	}
 
 	ebiten.SetWindowSize(600, 600)
@@ -88,4 +119,60 @@ func coord(i, j int) (float32, float32, float32, float32) {
 	y1 := 200 * (j + 1)
 
 	return float32(x0), float32(x1), float32(y0), float32(y1)
+}
+
+func getSquare(x, y int) (int, int) {
+
+	var i, j int
+
+	if x < 200 {
+		i = 0
+	} else if x < 400 {
+		i = 1
+	} else if x < 600 {
+		i = 2
+	}
+
+	if y < 200 {
+		j = 0
+	} else if y < 400 {
+		j = 1
+	} else if y < 600 {
+		j = 2
+	}
+
+	return i, j
+}
+
+func (g *Game) checkWinCondition() {
+	// check columns
+	for i := 0; i < 3; i++ {
+		if g.board[i][0] == g.board[i][1] && g.board[i][1] == g.board[i][2] && g.board[i][0] > 0 {
+			g.state = 2
+			g.winner = g.board[i][0]
+			return
+		}
+	}
+
+	// check rows
+	for j := 0; j < 3; j++ {
+		if g.board[0][j] == g.board[1][j] && g.board[1][j] == g.board[2][j] && g.board[0][j] > 0 {
+			g.state = 2
+			g.winner = g.board[0][j]
+			return
+		}
+	}
+
+	// check diagonals
+	if g.board[0][0] == g.board[1][1] && g.board[0][0] == g.board[2][2] && g.board[0][0] > 0 {
+		g.state = 2
+		g.winner = g.board[0][0]
+		return
+	}
+
+	if g.board[0][2] == g.board[1][1] && g.board[0][2] == g.board[2][0] && g.board[0][2] > 0 {
+		g.state = 2
+		g.winner = g.board[1][1]
+		return
+	}
 }
