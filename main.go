@@ -2,13 +2,19 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"log"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/gomono"
+	"golang.org/x/image/font/opentype"
 )
 
 // 1 for x and 2 for o
@@ -18,8 +24,32 @@ type Game struct {
 	// 0 - menu
 	// 1 - playing
 	// 2 - game over
-	state  int
-	winner int
+	state    int
+	winner   int
+	timeOver time.Time
+}
+
+var (
+	fontface font.Face
+	rect     image.Rectangle
+)
+
+func init() {
+
+	tt, err := opentype.Parse(gomono.TTF)
+	if err != nil {
+		log.Fatal(err)
+	}
+	const dpi = 100
+
+	fontface, err = opentype.NewFace(tt, &opentype.FaceOptions{
+		Size:    32,
+		DPI:     dpi,
+		Hinting: font.HintingVertical,
+	})
+
+	// 100, 290
+	rect = text.BoundString(fontface, "play")
 }
 
 func (g *Game) Update() error {
@@ -43,14 +73,44 @@ func (g *Game) Update() error {
 				g.checkWinCondition()
 			}
 		}
+
+		if g.state == 0 {
+			topleftX := rect.Min.X + 100
+			topleftY := rect.Min.Y + 290
+			bottomrightX := rect.Max.X + 100
+			bottomrightY := rect.Max.Y + 290
+
+			if topleftX < x && x < bottomrightX && topleftY < y && y < bottomrightY {
+				g.state = 1
+			}
+		}
+
+		if g.state == 2 {
+			if time.Since(g.timeOver).Milliseconds() > 200 {
+				g.state = 0
+				g.reset()
+			}
+		}
 	}
+
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("Game state is: %d", g.state))
-	drawBoard(screen)
-	g.drawGame(screen)
+
+	if g.state == 0 {
+		text.Draw(screen, "play", fontface, 100, 290, color.RGBA{255, 255, 255, 1})
+	}
+
+	if g.state > 0 {
+		drawBoard(screen)
+		g.drawGame(screen)
+	}
+
+	if g.state == 2 {
+		text.Draw(screen, fmt.Sprintf("Player %d wins!!!", g.winner), fontface, 100, 290, color.RGBA{255, 255, 255, 1})
+	}
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -61,7 +121,7 @@ func main() {
 
 	g := &Game{
 		turn:  1,
-		state: 1,
+		state: 0,
 	}
 
 	ebiten.SetWindowSize(600, 600)
@@ -150,6 +210,7 @@ func (g *Game) checkWinCondition() {
 		if g.board[i][0] == g.board[i][1] && g.board[i][1] == g.board[i][2] && g.board[i][0] > 0 {
 			g.state = 2
 			g.winner = g.board[i][0]
+			g.timeOver = time.Now()
 			return
 		}
 	}
@@ -159,6 +220,7 @@ func (g *Game) checkWinCondition() {
 		if g.board[0][j] == g.board[1][j] && g.board[1][j] == g.board[2][j] && g.board[0][j] > 0 {
 			g.state = 2
 			g.winner = g.board[0][j]
+			g.timeOver = time.Now()
 			return
 		}
 	}
@@ -167,12 +229,23 @@ func (g *Game) checkWinCondition() {
 	if g.board[0][0] == g.board[1][1] && g.board[0][0] == g.board[2][2] && g.board[0][0] > 0 {
 		g.state = 2
 		g.winner = g.board[0][0]
+		g.timeOver = time.Now()
 		return
 	}
 
 	if g.board[0][2] == g.board[1][1] && g.board[0][2] == g.board[2][0] && g.board[0][2] > 0 {
 		g.state = 2
 		g.winner = g.board[1][1]
+		g.timeOver = time.Now()
 		return
 	}
+}
+
+func (g *Game) reset() {
+
+	a := &Game{
+		turn:  1,
+		state: 0,
+	}
+	*g = *a
 }
