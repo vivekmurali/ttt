@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -24,7 +23,8 @@ type Game struct {
 	// 0 - menu
 	// 1 - playing
 	// 2 - game over
-	state    int
+	state int
+	// 3 is draw
 	winner   int
 	timeOver time.Time
 }
@@ -97,7 +97,6 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	ebitenutil.DebugPrint(screen, fmt.Sprintf("Game state is: %d", g.state))
 
 	if g.state == 0 {
 		text.Draw(screen, "play", fontface, 100, 290, color.RGBA{255, 255, 255, 1})
@@ -109,7 +108,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	if g.state == 2 {
-		text.Draw(screen, fmt.Sprintf("Player %d wins!!!", g.winner), fontface, 100, 290, color.RGBA{255, 255, 255, 1})
+
+		if g.winner < 3 {
+			text.Draw(screen, fmt.Sprintf("Player %d wins!!!", g.winner), fontface, 100, 290, color.RGBA{255, 255, 255, 1})
+		}
+
+		if g.winner == 3 {
+			text.Draw(screen, "Draw!!!!", fontface, 100, 290, color.RGBA{255, 255, 255, 1})
+		}
 	}
 }
 
@@ -237,6 +243,22 @@ func (g *Game) checkWinCondition() {
 		g.state = 2
 		g.winner = g.board[1][1]
 		g.timeOver = time.Now()
+		return
+	}
+
+	flag := false
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			if g.board[i][j] == 0 {
+				flag = true
+			}
+		}
+	}
+
+	if !flag {
+		g.winner = 3
+		g.timeOver = time.Now()
+		g.state = 2
 		return
 	}
 }
